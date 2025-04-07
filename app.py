@@ -13,6 +13,10 @@ import json
 
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return render_template('index.html')
+
 USERNAME = "wowteam"
 PASSWORD = "test1234"
 latest_pdf_path = None

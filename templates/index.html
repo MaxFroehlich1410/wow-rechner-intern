@@ -1,1 +1,241 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>WOW-Rechner Intern</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f2f2f2;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        form, .result {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin-bottom: 40px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #0057a0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #ddd;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>WOW-Rechner Intern</h1>
+<form id="profitForm">
+    <label for="theater">Theatername:</label>
+    <input type="text" name="theater" required>
 
+    <label for="max_zuschauer">Maximale Zuschauer pro Show:</label>
+    <input type="number" name="max_zuschauer" required>
+
+    <label for="showzahl">Anzahl Shows:</label>
+    <input type="number" name="showzahl" required>
+
+    <label for="tage">Anzahl Tage:</label>
+    <input type="number" name="tage" required>
+
+    <label for="tagesgage">Tagesgage (€):</label>
+    <input type="number" step="0.01" name="tagesgage" required>
+
+    <label for="sonstige_kosten">Sonstige Kosten (€):</label>
+    <input type="number" step="0.01" name="sonstige_kosten" required>
+
+    <label for="average_ticketpreis">Durchschnittlicher Ticketpreis (€):</label>
+    <input type="number" step="0.01" name="average_ticketpreis" id="average_ticketpreis">
+
+    <label for="sharedeal">Share Deal Anteil (z.B. 0.6):</label>
+    <input type="number" step="0.01" name="sharedeal" required>
+
+    <label for="Ticketanbieter_gebuehr">Ticketanbieter Gebühr (Reservix 0.85€):</label>
+    <input type="number" step="0.01" name="Ticketanbieter_gebuehr" required>
+
+    <label><input type="checkbox" name="mit_ust"> Theater ist umsatzsteuerbefreit</label>
+
+    <label><input type="checkbox" id="use_ticket_kategorien"> Durchschnittspreis über Ticketkategorien berechnen</label>
+
+    <div id="ticket_kategorien_wrapper" class="hidden">
+        <label for="anzahl_kategorien">Anzahl Preiskategorien:</label>
+        <input type="number" id="anzahl_kategorien">
+        <button type="button" onclick="erstelleKategorien()">Kategorien erstellen</button>
+        <div id="kategorien_container"></div>
+    </div>
+
+    <button type="submit">Gewinn berechnen &amp; Diagramm anzeigen</button>
+</form>
+
+<div class="result" id="result" style="display:none;">
+    <h2>Ergebnis</h2>
+    <div>
+        <img id="plot" src="">
+        <form id="pdfForm" method="post" action="/save-pdf">
+            <input type="hidden" name="data_json" id="data_json">
+            <input type="hidden" name="table_data" id="table_data">
+            <button type="submit">Als PDF speichern</button>
+        </form>
+    </div>
+    <table id="resultTable">
+        <thead>
+        <tr>
+            <th>Ticketanzahl</th>
+            <th>Auslastung (%)</th>
+            <th>Gewinn / Verlust (€)</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+<script>
+    document.getElementById('use_ticket_kategorien').addEventListener('change', function () {
+        document.getElementById('ticket_kategorien_wrapper').classList.toggle('hidden', !this.checked);
+    });
+
+    function erstelleKategorien() {
+        const container = document.getElementById('kategorien_container');
+        container.innerHTML = '';
+        const anzahl = parseInt(document.getElementById('anzahl_kategorien').value);
+
+        for (let i = 0; i < anzahl; i++) {
+            const block = document.createElement('div');
+            block.classList.add('category-block');
+            block.innerHTML = `
+                <h3>PK ${i + 1}</h3>
+                <label>Anzahl Sitzplätze in dieser Kategorie:</label>
+                <input type="number" class="pk_plaetze">
+                <label>Anzahl Ticketklassen:</label>
+                <input type="number" class="anzahl_klassen" onchange="erstelleKlassen(this, ${i})">
+                <div class="ticketarten" id="ticketarten_${i}"></div>
+            `;
+            container.appendChild(block);
+        }
+    }
+
+    function erstelleKlassen(input, katIndex) {
+        const container = document.getElementById('ticketarten_' + katIndex);
+        container.innerHTML = '';
+        const anzahl = parseInt(input.value);
+
+        for (let j = 0; j < anzahl; j++) {
+            const div = document.createElement('div');
+            div.classList.add('ticketart-container');
+            div.innerHTML = `
+                <label>Bezeichnung Ticketklasse ${j + 1}:</label>
+                <input type="text" class="ticketart_name">
+                <label>Preis (€):</label>
+                <input type="number" class="ticketart_preis">
+                <label>Verteilung (%):</label>
+                <input type="number" class="ticketart_anteil">
+            `;
+            container.appendChild(div);
+        }
+    }
+
+    // ✅ The main submit logic
+    document.getElementById('profitForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+        data['mit_ust'] = formData.get('mit_ust') === 'on';
+        data['use_ticket_kategorien'] = document.getElementById('use_ticket_kategorien').checked;
+
+        if (data['use_ticket_kategorien']) {
+            const kategorien = [];
+            const blocks = document.querySelectorAll('.category-block');
+            blocks.forEach(block => {
+                const anzahl = block.querySelector('.pk_plaetze').value;
+                const stufenContainer = block.querySelectorAll('.ticketart-container');
+                const stufen = [];
+                stufenContainer.forEach(stufe => {
+                    stufen.push({
+                        name: stufe.querySelector('.ticketart_name').value,
+                        preis: stufe.querySelector('.ticketart_preis').value,
+                        anteil: stufe.querySelector('.ticketart_anteil').value
+                    });
+                });
+                kategorien.push({ anzahl, stufen });
+            });
+            data['ticket_kategorien'] = kategorien;
+        }
+
+        // Call /calculate
+        const response = await fetch('/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.error) {
+            alert(result.error);
+            return;
+        }
+
+        // 1) Set the plot
+        document.getElementById('plot').src = 'data:image/png;base64,' + result.plot_url;
+
+        // 2) Possibly set average ticket price
+        if (result.average_ticketpreis) {
+            document.getElementById('average_ticketpreis').value = result.average_ticketpreis;
+        }
+
+        // 3) Build the table
+        const tableBody = document.querySelector('#resultTable tbody');
+        tableBody.innerHTML = '';
+        for (const row of result.table_data) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td>`;
+            tableBody.appendChild(tr);
+        }
+
+        // ✅ 4) Fill the hidden PDF form fields
+        document.getElementById('data_json').value = JSON.stringify(data);
+        document.getElementById('table_data').value = JSON.stringify(result.table_data);
+
+        // 5) Reveal the result
+        document.getElementById('result').style.display = 'block';
+    });
+</script>
+
+</body>
+</html>

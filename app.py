@@ -13,6 +13,7 @@ import json
 
 app = Flask(__name__)
 
+
 USERNAME = "wowteam"
 PASSWORD = "test1234"
 latest_pdf_path = None

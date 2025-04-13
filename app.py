@@ -13,7 +13,6 @@ import json
 
 app = Flask(__name__)
 
-
 USERNAME = "wowteam"
 PASSWORD = "test1234"
 latest_pdf_path = None
@@ -104,6 +103,75 @@ def index():
     })
 
 
+
+# @app.route('/calculate', methods=['POST'])
+# @requires_auth
+# def calculate():
+#     global png_bytes
+
+#     data = request.json
+
+#     if data.get("use_ticket_kategorien"):
+#         kategorien = data.get("ticket_kategorien", [])
+#         try:
+#             data["average_ticketpreis"] = calculate_average_ticketpreis(kategorien, int(data['max_zuschauer']))
+#         except ValueError as e:
+#             return jsonify({"error": str(e)}), 400
+
+#     max_people = int(data['max_zuschauer']) * int(data['showzahl'])
+
+#     zuschauer, gewinn = calculate_profit(
+#         int(data['max_zuschauer']),
+#         int(data['showzahl']),
+#         int(data['tage']),
+#         float(data['tagesgage']),
+#         float(data['sonstige_kosten']),
+#         float(data['average_ticketpreis']),
+#         float(data['sharedeal']),
+#         float(data['Ticketanbieter_gebuehr']),
+#         data['mit_ust']
+#     )
+
+    
+
+#     table_data = generate_table(zuschauer, gewinn, max_people)
+#     break_even_index = np.abs(gewinn).argmin()
+#     break_even_zuschauer = zuschauer[break_even_index]
+#     break_even_prozent = round(100 * break_even_zuschauer / max_people)
+
+#     fig, ax = plt.subplots(figsize=(12, 6))
+#     ax.plot(zuschauer, gewinn, label='Gewinn')
+#     ax.axhline(0, color='green', linestyle='--', label='Break-Even')
+#     ax.annotate(f"{break_even_zuschauer} Zuschauer\n({break_even_prozent}%)",
+#                 xy=(break_even_zuschauer, 0),
+#                 xytext=(break_even_zuschauer, max(gewinn) * 0.6),
+#                 arrowprops=dict(facecolor='red', arrowstyle="->"),
+#                 fontsize=9, ha='center', color='red')
+#     ax.set_title(f"Gewinnprojektion – {data['theater']}")
+#     ax.set_xlabel("Zuschauer")
+#     ax.set_ylabel("Gewinn (€)")
+#     ax.grid(True, linestyle='--', alpha=0.6)
+#     ax.legend()
+#     plt.tight_layout()
+#     buf = io.BytesIO()
+#     plt.savefig(buf, format='png')
+#     buf.seek(0)
+#     plot_url = base64.b64encode(buf.getvalue()).decode()
+#     plt.close()
+
+
+
+
+#     # store the raw PNG for PDF later
+#     global png_bytes
+#     png_bytes = buf.getvalue()
+
+#     return jsonify({
+#         "plot_url": plot_url,
+#         "table_data": table_data,
+#         "average_ticketpreis": round(float(data['average_ticketpreis']), 2)
+#         # note: no more "pdf_ready" needed
+#     })
 
 
 @app.route('/calculate', methods=['POST'])
@@ -213,6 +281,113 @@ def calculate():
         "average_ticketpreis": round(float(data['average_ticketpreis']), 2)
     })
 
+
+# @app.route('/save-pdf', methods=['POST'])
+# @requires_auth
+# def save_pdf():
+#     global png_bytes
+
+#     data_json = request.form.get('data_json')
+#     table_data_json = request.form.get('table_data')
+#     if not data_json or not table_data_json:
+#         return "Fehlende Daten", 400
+
+#     data = json.loads(data_json)
+#     table_data = json.loads(table_data_json)
+
+#     # Provide nice labels for the input fields:
+#     label_map = {
+#         "theater": "Theatername",
+#         "max_zuschauer": "Max. Zuschauer pro Show",
+#         "showzahl": "Anzahl Shows",
+#         "tage": "Anzahl Tage",
+#         "tagesgage": "Tagesgage",
+#         "sonstige_kosten": "Sonstige Kosten",
+#         "average_ticketpreis": "Durchschn. Ticketpreis",
+#         "sharedeal": "Share Deal Anteil",
+#         "Ticketanbieter_gebuehr": "Ticket Gebühren",
+#         "mit_ust": "Umsatzsteuer",
+#         "use_ticket_kategorien": "Ticketkategorien genutzt"
+#     }
+
+#     # Make a new PDF
+#     temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+
+#     with PdfPages(temp_pdf.name) as pdf:
+
+#         ##############################
+#         # Page 1: The Plot as image #
+#         ##############################
+#         fig1 = plt.figure(figsize=(8.27, 5))  # A4 wide, half tall
+#         ax1 = fig1.add_axes([0, 0, 1, 1])
+#         ax1.axis('off')
+
+#         # Re-construct the plot from the png_bytes
+#         img = mpimg.imread(io.BytesIO(png_bytes), format='png')
+#         ax1.imshow(img)
+#         pdf.savefig(fig1)
+#         plt.close(fig1)
+
+#         ##############################
+#         # Page 2: Inputs + Table    #
+#         ##############################
+#         fig2, ax2 = plt.subplots(figsize=(8.27, 11))  # A4 in portrait
+#         ax2.axis('off')
+
+#         # 1) Title
+#         ax2.text(0.0, 0.97, "Eingegebene Werte:", fontsize=12, fontweight='bold', transform=ax2.transAxes)
+
+#         # 2) Print the user’s inputs in nice format
+#         y_text = 0.92
+#         for key in label_map:
+#             # For "mit_ust" we do a special check
+#             if key == "mit_ust":
+#                 is_on = data.get(key, False)
+#                 val_str = "Theater ist von Umsatzsteuer befreit" if is_on else "Theater ist NICHT von Umsatzsteuer befreit"
+#                 ax2.text(0.0, y_text, val_str, fontsize=10, transform=ax2.transAxes)
+#             else:
+#                 val = data.get(key, "")
+#                 ax2.text(0.0, y_text, f"{label_map[key]}: {val}", fontsize=10, transform=ax2.transAxes)
+#             y_text -= 0.04
+
+#         # 3) The results table
+#         y_text -= 0.04
+#         ax2.text(0.0, y_text, "Ergebnistabelle:", fontsize=12, fontweight='bold', transform=ax2.transAxes)
+#         y_text -= 0.1
+
+#         # e.g. (x, y, width, height)
+#         table_box = [0.0, 0.02, 1.0, y_text]  # from near bottom to y_text
+
+#         # we need the same columns as your HTML: Ticketanzahl / Auslastung (%) / Gewinn / Verlust
+#         col_labels = ["Ticketanzahl", "Auslastung (%)", "Gewinn / Verlust (€)"]
+#         cell_text = table_data  # Each row is like [ticket_count, percent, currency]
+
+#         # We'll build a raw Table with correct # rows
+#         from matplotlib.table import Table
+#         result_table = Table(ax2, bbox=table_box)
+#         n_rows = len(cell_text)+1  # +1 for header
+#         row_height = (table_box[3] if len(table_box)>3 else 1.0) / (n_rows + 1)
+
+#         # row 0 = header
+#         for col_idx, text in enumerate(col_labels):
+#             result_table.add_cell(
+#                 0, col_idx, width=1/3, height=0.05,
+#                 text=text, loc='center', facecolor='#dddddd'
+#             )
+
+#         # fill in rows
+#         for row_idx, row_data in enumerate(cell_text):
+#             for col_idx, val in enumerate(row_data):
+#                 result_table.add_cell(
+#                     row_idx+1, col_idx, width=1/3, height=0.05,
+#                     text=str(val), loc='center'
+#                 )
+
+#         ax2.add_table(result_table)
+#         pdf.savefig(fig2)
+#         plt.close(fig2)
+
+#     return send_file(temp_pdf.name, as_attachment=True, download_name="gewinnanalyse.pdf")
 
 
 @app.route('/save-pdf', methods=['POST'])
